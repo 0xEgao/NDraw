@@ -1,0 +1,17 @@
+[package]
+name = "ndraw-proto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+postcard.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+unicode-segmentation.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+proptest.workspace = true
