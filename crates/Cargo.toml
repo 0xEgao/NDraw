@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "ndraw-proto",
     "ndraw-den",
+    "ndraw-server",
 ]
 
 [workspace.package]
