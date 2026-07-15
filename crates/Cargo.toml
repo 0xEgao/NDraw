@@ -4,6 +4,7 @@ members = [
     "ndraw-proto",
     "ndraw-den",
     "ndraw-server",
+    "ndraw-test",
 ]
 
 [workspace.package]
