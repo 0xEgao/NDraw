@@ -29,10 +29,17 @@ test("encodes drawing votes with the frozen opcode", () => {
 });
 
 test("matches the Rust authoritative canvas-fill fixtures", () => {
-  assert.equal(hex(encodeClientMessage({ kind: "draw", operation: { kind: "fill", color: 42 } })), "0204052a");
+  assert.equal(hex(encodeClientMessage({ kind: "draw", operation: { kind: "fill", color: 42, at: { x: 10, y: 20 } } })), "0204052a0a14");
   assert.deepEqual(
-    decodeServerMessage(Uint8Array.from([0x02, 0x8a, 0x07, 0x04, 0x05, 0x2a])),
-    { kind: "draw", playerId: 7, turnId: 4, operation: { kind: "fill", color: 42 } },
+    decodeServerMessage(Uint8Array.from([0x02, 0x8a, 0x07, 0x04, 0x05, 0x2a, 0x0a, 0x14])),
+    { kind: "draw", playerId: 7, turnId: 4, operation: { kind: "fill", color: 42, at: { x: 10, y: 20 } } },
+  );
+});
+
+test("decodes room-visible guesses as guess chat lines", () => {
+  assert.deepEqual(
+    decodeServerMessage(Uint8Array.from([0x02, 0x8b, 0x07, 0x01, 0x02, 0x6e, 0x6f])),
+    { kind: "chat", event: { playerId: 7, kind: "guess", text: "no" } },
   );
 });
 

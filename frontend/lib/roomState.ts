@@ -1,4 +1,5 @@
 import type {
+  CanvasAction,
   ChatEvent,
   DrawingRatingView,
   PhaseView,
@@ -6,7 +7,6 @@ import type {
   RoomSettings,
   RoomSnapshot,
   ServerMessage,
-  Stroke,
   TurnResultView,
   WordOptions,
 } from "./protocol.ts";
@@ -17,8 +17,7 @@ export interface RoomState {
   settings: RoomSettings | null;
   players: PlayerView[];
   phase: PhaseView | null;
-  strokes: Stroke[];
-  backgroundColor: number;
+  canvasActions: CanvasAction[];
   wordOptions: WordOptions | null;
   secretWord: string | null;
   chatHistory: ChatEvent[];
@@ -36,8 +35,7 @@ export function initialRoomState(roomCode: string): RoomState {
     settings: null,
     players: [],
     phase: null,
-    strokes: [],
-    backgroundColor: 0xffffff,
+    canvasActions: [],
     wordOptions: null,
     secretWord: null,
     chatHistory: [],
@@ -62,8 +60,7 @@ function fromSnapshot(
     settings: snapshot.settings,
     players: snapshot.players,
     phase: snapshot.phase,
-    strokes: snapshot.canvas.strokes,
-    backgroundColor: snapshot.canvas.backgroundColor,
+    canvasActions: snapshot.canvas.actions,
     wordOptions: snapshot.wordOptions,
     secretWord: snapshot.secretWord,
     chatHistory: snapshot.chatHistory,
@@ -81,33 +78,36 @@ function upsertPlayer(players: PlayerView[], incoming: PlayerView): PlayerView[]
   return players.map((player) => player.playerId === incoming.playerId ? incoming : player);
 }
 
-function applyDraw(strokes: Stroke[], message: Extract<ServerMessage, { kind: "draw" }>): Stroke[] {
+function applyDraw(actions: CanvasAction[], message: Extract<ServerMessage, { kind: "draw" }>): CanvasAction[] {
   const operation = message.operation;
   switch (operation.kind) {
     case "begin":
       return [
-        ...strokes.filter((stroke) => stroke.strokeId !== operation.strokeId),
+        ...actions.filter((action) => action.kind !== "stroke" || action.stroke.strokeId !== operation.strokeId),
         {
-          strokeId: operation.strokeId,
-          color: operation.color,
-          width: operation.width,
-          points: [operation.start],
+          kind: "stroke",
+          stroke: {
+            strokeId: operation.strokeId,
+            color: operation.color,
+            width: operation.width,
+            points: [operation.start],
+          },
         },
       ];
     case "points":
-      return strokes.map((stroke) => stroke.strokeId === operation.strokeId
-        ? { ...stroke, points: [...stroke.points, ...operation.points] }
-        : stroke);
+      return actions.map((action) => action.kind === "stroke" && action.stroke.strokeId === operation.strokeId
+        ? { ...action, stroke: { ...action.stroke, points: [...action.stroke.points, ...operation.points] } }
+        : action);
     case "end":
       // Produce a final authoritative repaint after the drawer stops skipping
       // partial echo renders during their local pointer gesture.
-      return [...strokes];
+      return [...actions];
     case "undo":
-      return strokes.slice(0, -1);
+      return actions.slice(0, -1);
     case "clear":
       return [];
     case "fill":
-      return strokes;
+      return [...actions, { kind: "fill", color: operation.color, at: operation.at }];
   }
 }
 
@@ -141,8 +141,7 @@ export function reduceRoom(state: RoomState, message: ServerMessage): RoomState 
       return {
         ...state,
         phase: message.phase,
-        strokes: startsNewCanvas ? [] : state.strokes,
-        backgroundColor: startsNewCanvas ? 0xffffff : state.backgroundColor,
+        canvasActions: startsNewCanvas ? [] : state.canvasActions,
         wordOptions: message.phase.phase === "choosingWord" ? state.wordOptions : null,
         secretWord: message.phase.phase === "drawing" ? state.secretWord : null,
         players: state.players.map((player) => ({
@@ -165,12 +164,7 @@ export function reduceRoom(state: RoomState, message: ServerMessage): RoomState 
       return state.phase?.turnId === message.turnId
         ? {
             ...state,
-            strokes: applyDraw(state.strokes, message),
-            backgroundColor: message.operation.kind === "fill"
-              ? message.operation.color
-              : message.operation.kind === "clear"
-                ? 0xffffff
-                : state.backgroundColor,
+            canvasActions: applyDraw(state.canvasActions, message),
           }
         : state;
     case "chat":

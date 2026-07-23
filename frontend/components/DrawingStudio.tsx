@@ -20,7 +20,8 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { CSSProperties, PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
-import { DrawOp, Point, Stroke } from "../lib/protocol.ts";
+import { floodFillPixels } from "../lib/floodFill.ts";
+import { CanvasAction, DrawOp, Point, Stroke } from "../lib/protocol.ts";
 import styles from "./ndraw.module.css";
 
 export const CANVAS_WIDTH = 1024;
@@ -178,12 +179,24 @@ function renderStroke(context: CanvasRenderingContext2D, stroke: Stroke, fromInd
   context.stroke();
 }
 
-function renderStrokes(context: CanvasRenderingContext2D, strokes: readonly Stroke[], backgroundColor: number): void {
+function applyFloodFill(context: CanvasRenderingContext2D, at: Point, color: number): void {
+  const image = context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  if (floodFillPixels(image.data, CANVAS_WIDTH, CANVAS_HEIGHT, at, color)) {
+    context.putImageData(image, 0, 0);
+  }
+}
+
+function renderAction(context: CanvasRenderingContext2D, action: CanvasAction): void {
+  if (action.kind === "stroke") renderStroke(context, action.stroke);
+  else applyFloodFill(context, action.at, action.color);
+}
+
+function renderCanvas(context: CanvasRenderingContext2D, actions: readonly CanvasAction[]): void {
   context.globalAlpha = 1;
   context.globalCompositeOperation = "source-over";
-  context.fillStyle = `#${backgroundColor.toString(16).padStart(6, "0")}`;
+  context.fillStyle = "#ffffff";
   context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  for (const stroke of strokes) renderStroke(context, stroke);
+  for (const action of actions) renderAction(context, action);
 }
 
 function pointsStartWith(points: readonly Point[], prefix: readonly Point[]): boolean {
@@ -264,16 +277,14 @@ function shapePoints(tool: Tool, start: Point, end: Point): Point[] {
 }
 
 export function DrawingStudio({
-  backgroundColor = 0xffffff,
+  actions = [],
   compact = false,
   enabled = true,
-  strokes = [],
   onDraw,
 }: {
-  backgroundColor?: number;
+  actions?: readonly CanvasAction[];
   compact?: boolean;
   enabled?: boolean;
-  strokes?: readonly Stroke[];
   onDraw?: (operation: DrawOp) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -287,8 +298,7 @@ export function DrawingStudio({
   const pendingPointsRef = useRef<Point[]>([]);
   const flushTimerRef = useRef<number | null>(null);
   const lastFlushAtRef = useRef(Number.NEGATIVE_INFINITY);
-  const renderedStrokesRef = useRef<readonly Stroke[]>([]);
-  const renderedBackgroundRef = useRef(0xffffff);
+  const renderedActionsRef = useRef<readonly CanvasAction[]>([]);
   const onDrawRef = useRef(onDraw);
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState("#7656df");
@@ -322,41 +332,38 @@ export function DrawingStudio({
     // echoes during a pointer gesture would overwrite the smoother local ink.
     if (!context || startRef.current !== null) return;
 
-    const previous = renderedStrokesRef.current;
+    const previous = renderedActionsRef.current;
     const previousLast = previous[previous.length - 1];
-    const currentLast = strokes[strokes.length - 1];
+    const currentLast = actions[actions.length - 1];
     const unchangedPrefixLength = Math.max(0, previous.length - 1);
     const unchangedPrefix = previous
       .slice(0, unchangedPrefixLength)
-      .every((stroke, index) => stroke === strokes[index]);
+      .every((action, index) => action === actions[index]);
 
-    if (backgroundColor !== renderedBackgroundRef.current) {
-      renderStrokes(context, strokes, backgroundColor);
-    } else if (
-      strokes.length === previous.length + 1
-      && previous.every((stroke, index) => stroke === strokes[index])
+    if (
+      actions.length === previous.length + 1
+      && previous.every((action, index) => action === actions[index])
       && currentLast
     ) {
-      renderStroke(context, currentLast);
+      renderAction(context, currentLast);
     } else if (
-      strokes.length === previous.length
+      actions.length === previous.length
       && unchangedPrefix
-      && previousLast
-      && currentLast
-      && previousLast.strokeId === currentLast.strokeId
-      && previousLast.color === currentLast.color
-      && previousLast.width === currentLast.width
-      && pointsStartWith(currentLast.points, previousLast.points)
+      && previousLast?.kind === "stroke"
+      && currentLast?.kind === "stroke"
+      && previousLast.stroke.strokeId === currentLast.stroke.strokeId
+      && previousLast.stroke.color === currentLast.stroke.color
+      && previousLast.stroke.width === currentLast.stroke.width
+      && pointsStartWith(currentLast.stroke.points, previousLast.stroke.points)
     ) {
-      if (currentLast.points.length > previousLast.points.length) {
-        renderStroke(context, currentLast, Math.max(0, previousLast.points.length - 2));
+      if (currentLast.stroke.points.length > previousLast.stroke.points.length) {
+        renderStroke(context, currentLast.stroke, Math.max(0, previousLast.stroke.points.length - 2));
       }
     } else {
-      renderStrokes(context, strokes, backgroundColor);
+      renderCanvas(context, actions);
     }
-    renderedStrokesRef.current = strokes;
-    renderedBackgroundRef.current = backgroundColor;
-  }, [backgroundColor, strokes]);
+    renderedActionsRef.current = actions;
+  }, [actions]);
 
   const flushPoints = useCallback(() => {
     if (flushTimerRef.current !== null) {
@@ -404,10 +411,9 @@ export function DrawingStudio({
     if (tool === "bucket") {
       context.globalCompositeOperation = "source-over";
       context.globalAlpha = 1;
-      context.fillStyle = color;
-      context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      for (const stroke of strokes) renderStroke(context, stroke);
-      onDrawRef.current?.({ kind: "fill", color: Number.parseInt(color.slice(1), 16) });
+      const fillColor = Number.parseInt(color.slice(1), 16);
+      applyFloodFill(context, point, fillColor);
+      onDrawRef.current?.({ kind: "fill", color: fillColor, at: rounded(point) });
       updateHistoryState();
       return;
     }
@@ -599,7 +605,7 @@ export function DrawingStudio({
           <SlidersHorizontal size={20} weight="bold" /><span>{size}px</span>
         </button>
         <span className={styles.dockDivider} />
-        <button aria-label="Undo" className="icon-button" disabled={!enabled || (onDraw ? strokes.length === 0 : !canUndo)} onClick={undo} type="button"><ArrowCounterClockwise size={20} weight="bold" /></button>
+        <button aria-label="Undo" className="icon-button" disabled={!enabled || (onDraw ? actions.length === 0 : !canUndo)} onClick={undo} type="button"><ArrowCounterClockwise size={20} weight="bold" /></button>
         <button aria-label="Redo" className="icon-button" disabled={!enabled || Boolean(onDraw) || !canRedo} onClick={redo} type="button"><ArrowClockwise size={20} weight="bold" /></button>
         <button aria-label="Clear canvas" className="icon-button" disabled={!enabled} onClick={clear} type="button"><Trash size={19} weight="bold" /></button>
       </div>
@@ -636,7 +642,7 @@ export function DrawingStudio({
                   <button aria-label={`Use ${swatch}`} data-selected={color === swatch} key={swatch} onClick={() => setColor(swatch)} style={{ background: swatch }} type="button" />
                 ))}
               </div>
-              {tool === "bucket" ? <small className={styles.toolHelp}>Tap the board to fill its background.</small> : null}
+              {tool === "bucket" ? <small className={styles.toolHelp}>Tap inside a closed shape to fill that region.</small> : null}
             </div>
           ) : null}
           {openSection === "size" ? (

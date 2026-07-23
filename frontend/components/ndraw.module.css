@@ -391,6 +391,8 @@
 .phaseOverlay p { max-width: 330px; margin: 0 0 5px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
 .phaseOverlay .primaryButton { min-width: 150px; padding-inline: 20px; }
 .lobbyActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.phaseOverlay .lobbyExpiry { margin: 1px 0 0; color: #d92d20; font-size: 0.78rem; font-weight: 850; }
+.lobbyExpiry strong { color: #b42318; font-size: 1rem; font-variant-numeric: tabular-nums; }
 .shareRoomButton { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; gap: 7px; border: 1px solid #d3cce9; border-radius: 14px; background: white; padding: 0 15px; color: var(--purple-dark); cursor: pointer; font-size: 0.72rem; font-weight: 900; }
 .shareRoomButton:disabled { cursor: not-allowed; opacity: 0.5; }
 .lobbyJoinRule { display: flex; max-width: 350px; align-items: flex-start; gap: 7px; border-radius: 11px; background: #f2efe8; padding: 8px 10px; color: #78766e; text-align: left; }

@@ -24,7 +24,7 @@ const snapshot: RoomSnapshot = {
     hasGuessed: false,
   }],
   phase: lobby,
-  canvas: { backgroundColor: 0xffffff, strokes: [] },
+  canvas: { actions: [] },
   wordOptions: null,
   secretWord: null,
   chatHistory: [],
@@ -67,26 +67,30 @@ test("draw events reconstruct the shared canvas", () => {
   state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "begin", strokeId: 9, color: 0x7656df, width: 8, start: { x: 10, y: 20 } } });
   state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "points", strokeId: 9, sequence: 0, points: [{ x: 11, y: 21 }] } });
   state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "end", strokeId: 9, sequence: 1 } });
-  assert.deepEqual(state.strokes[0]?.points, [{ x: 10, y: 20 }, { x: 11, y: 21 }]);
+  const firstAction = state.canvasActions[0];
+  assert.equal(firstAction?.kind, "stroke");
+  if (firstAction?.kind === "stroke") {
+    assert.deepEqual(firstAction.stroke.points, [{ x: 10, y: 20 }, { x: 11, y: 21 }]);
+  }
 });
 
-test("fill and clear events update the authoritative canvas background", () => {
+test("fill and clear events update the ordered authoritative canvas", () => {
   const drawing: PhaseView = { ...lobby, phase: "drawing", round: 1, drawer: 7, turnId: 3, maskedWord: "___" };
   let state = reduceRoom(initialRoomState("ABC234"), { kind: "welcome", playerId: 7, roomCode: "ABC234", snapshot: { ...snapshot, phase: drawing } });
-  state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "fill", color: 0x123456 } });
-  assert.equal(state.backgroundColor, 0x123456);
+  state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "fill", color: 0x123456, at: { x: 50, y: 60 } } });
+  assert.deepEqual(state.canvasActions, [{ kind: "fill", color: 0x123456, at: { x: 50, y: 60 } }]);
   state = reduceRoom(state, { kind: "draw", playerId: 7, turnId: 3, operation: { kind: "clear" } });
-  assert.equal(state.backgroundColor, 0xffffff);
+  assert.deepEqual(state.canvasActions, []);
 });
 
 test("a new choosing phase clears the previous turn canvas", () => {
   const state = {
     ...initialRoomState("ABC234"),
     phase: { ...lobby, phase: "roundEnd" as const, turnId: 2 },
-    strokes: [{ strokeId: 1, color: 0, width: 4, points: [{ x: 1, y: 1 }] }],
+    canvasActions: [{ kind: "stroke" as const, stroke: { strokeId: 1, color: 0, width: 4, points: [{ x: 1, y: 1 }] } }],
   };
   const next = reduceRoom(state, { kind: "phaseChanged", phase: { ...lobby, phase: "choosingWord", round: 2, drawer: 7, turnId: 3 } });
-  assert.deepEqual(next.strokes, []);
+  assert.deepEqual(next.canvasActions, []);
 });
 
 test("player ranking follows score and remains stable for ties", () => {

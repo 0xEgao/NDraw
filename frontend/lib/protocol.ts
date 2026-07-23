@@ -12,7 +12,7 @@ export type DrawOp =
   | { kind: "end"; strokeId: number; sequence: number }
   | { kind: "undo" }
   | { kind: "clear" }
-  | { kind: "fill"; color: number };
+  | { kind: "fill"; color: number; at: Point };
 
 export interface PlayerProfile { displayName: string; avatar: AvatarBytes }
 export interface RoomSettings { rounds: number; drawSeconds: number; wordChoices: number; maxPlayers: number }
@@ -20,7 +20,10 @@ export interface PlayerView { playerId: number; profile: PlayerProfile; score: n
 export type GamePhase = "lobby" | "choosingWord" | "drawing" | "roundEnd" | "gameOver";
 export interface PhaseView { phase: GamePhase; round: number; totalRounds: number; drawer: number | null; turnId: number | null; deadlineUnixMs: number | null; maskedWord: string | null }
 export interface Stroke { strokeId: number; color: number; width: number; points: Point[] }
-export interface ChatEvent { playerId: number; text: string }
+export type CanvasAction =
+  | { kind: "stroke"; stroke: Stroke }
+  | { kind: "fill"; color: number; at: Point };
+export interface ChatEvent { playerId: number; kind: "chat" | "guess"; text: string }
 export interface WordOptions { turnId: number; words: string[] }
 export type AwardReason = "correctGuess" | "drawerBonus";
 export interface TurnAward { playerId: number; points: number; reason: AwardReason }
@@ -31,7 +34,7 @@ export interface RoomSnapshot {
   settings: RoomSettings;
   players: PlayerView[];
   phase: PhaseView;
-  canvas: { backgroundColor: number; strokes: Stroke[] };
+  canvas: { actions: CanvasAction[] };
   wordOptions: WordOptions | null;
   secretWord: string | null;
   chatHistory: ChatEvent[];
@@ -99,7 +102,10 @@ function writeDraw(writer: Writer, operation: DrawOp): void {
     case "end": writer.varint(2).varint(operation.strokeId).varint(operation.sequence); return;
     case "undo": writer.varint(3); return;
     case "clear": writer.varint(4); return;
-    case "fill": writer.varint(5).varint(operation.color); return;
+    case "fill":
+      writer.varint(5).varint(operation.color);
+      writePoint(writer, operation.at);
+      return;
   }
 }
 
@@ -146,11 +152,22 @@ function readDraw(reader: Reader): DrawOp {
   if (variant === 2) return { kind: "end", strokeId: reader.varint(), sequence: reader.varint() };
   if (variant === 3) return { kind: "undo" };
   if (variant === 4) return { kind: "clear" };
-  if (variant === 5) return { kind: "fill", color: reader.varint() };
+  if (variant === 5) return { kind: "fill", color: reader.varint(), at: readPoint(reader) };
   throw new Error(`server sent unknown DrawOp variant ${variant}`);
 }
 function readStroke(reader: Reader): Stroke { return { strokeId: reader.varint(), color: reader.varint(), width: reader.u8(), points: reader.vector(readPoint) }; }
-function readChat(reader: Reader): ChatEvent { return { playerId: reader.varint(), text: reader.string() }; }
+function readCanvasAction(reader: Reader): CanvasAction {
+  const variant = reader.varint();
+  if (variant === 0) return { kind: "stroke", stroke: readStroke(reader) };
+  if (variant === 1) return { kind: "fill", color: reader.varint(), at: readPoint(reader) };
+  throw new Error(`server sent unknown CanvasAction variant ${variant}`);
+}
+function readChat(reader: Reader): ChatEvent {
+  const playerId = reader.varint();
+  const kind = reader.varint();
+  if (kind !== 0 && kind !== 1) throw new Error(`server sent unknown chat kind ${kind}`);
+  return { playerId, kind: kind === 0 ? "chat" : "guess", text: reader.string() };
+}
 function readWordOptions(reader: Reader): WordOptions { return { turnId: reader.varint(), words: reader.vector((value) => value.string()) }; }
 function readDrawingVote(reader: Reader): DrawingVote {
   const value = reader.varint();
@@ -184,7 +201,7 @@ function readSnapshot(reader: Reader): RoomSnapshot {
     settings: readSettings(reader),
     players: reader.vector(readPlayer),
     phase: readPhase(reader),
-    canvas: { backgroundColor: reader.varint(), strokes: reader.vector(readStroke) },
+    canvas: { actions: reader.vector(readCanvasAction) },
     wordOptions: reader.option(readWordOptions),
     secretWord: reader.option((value) => value.string()),
     chatHistory: reader.vector(readChat),

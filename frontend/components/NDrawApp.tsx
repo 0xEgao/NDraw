@@ -330,7 +330,7 @@ function useCountdown(deadlineUnixMs: number | null | undefined): string {
 function chatLinesFromSnapshot(message: Extract<ServerMessage, { kind: "welcome" | "resume" }>): ChatLine[] {
   return message.snapshot.chatHistory.map((event, index) => ({
     id: index + 1,
-    kind: "chat",
+    kind: event.kind,
     playerId: event.playerId,
     text: event.text,
   }));
@@ -400,7 +400,7 @@ function GameRoom({
           setLines(chatLinesFromSnapshot(message));
           setServerNotice(message.kind === "welcome" ? `Connected to ${message.kind === "welcome" ? message.roomCode : roomCode}` : "Reconnected — room state restored");
         } else if (message.kind === "chat") {
-          addLine({ kind: "chat", playerId: message.event.playerId, text: message.event.text });
+          addLine({ kind: message.event.kind, playerId: message.event.playerId, text: message.event.text });
         } else if (message.kind === "guessResult") {
           if (typeof message.outcome === "object") addLine({ kind: "correct", playerId: message.playerId, text: `guessed correctly (+${message.outcome.correct})` });
           else if (message.outcome === "close") addLine({ kind: "system", playerId: message.playerId, text: "Very close!" });
@@ -459,17 +459,7 @@ function GameRoom({
     if (!text || connection !== "open") return;
     let sent = false;
     if (canGuess) {
-      if (clientRef.current?.send({ kind: "guess", text })) {
-        sent = true;
-        lineIdRef.current += 1;
-        const guessedLine: ChatLine = {
-          id: lineIdRef.current,
-          kind: "guess",
-          playerId: room.selfPlayerId,
-          text,
-        };
-        setLines((current) => [...current, guessedLine].slice(-80));
-      }
+      sent = Boolean(clientRef.current?.send({ kind: "guess", text }));
     } else {
       sent = Boolean(clientRef.current?.send({ kind: "chat", text }));
     }
@@ -491,6 +481,7 @@ function GameRoom({
       onShare={shareRoom}
       onStart={() => clientRef.current?.send({ kind: "startGame" })}
       phase={phase}
+      lobbyTimer={timer}
       playerCount={room.players.filter((player) => player.connected).length}
       wordOptions={room.wordOptions?.words ?? []}
       players={room.players}
@@ -503,7 +494,7 @@ function GameRoom({
         if (turnId !== undefined) clientRef.current?.send({ kind: "voteDrawing", turnId, vote });
       }}
     />
-  ) : <PhaseOverlay connection={connection} drawSeconds={100} isHost={false} onPickWord={() => undefined} onRematch={() => undefined} onShare={() => undefined} onStart={() => undefined} onVote={() => undefined} phase={null} playerCount={0} players={[]} rating={null} result={null} selfPlayerId={null} wordOptions={[]} />;
+  ) : <PhaseOverlay connection={connection} drawSeconds={100} isHost={false} lobbyTimer="--:--" onPickWord={() => undefined} onRematch={() => undefined} onShare={() => undefined} onStart={() => undefined} onVote={() => undefined} phase={null} playerCount={0} players={[]} rating={null} result={null} selfPlayerId={null} wordOptions={[]} />;
 
   return (
     <main className={styles.gameShell} data-mobile-panel={mobilePanel ?? "none"}>
@@ -525,7 +516,7 @@ function GameRoom({
             <span className={styles.roomCatOne}><i>mrrp!</i><Cat size={36} weight="duotone" /></span>
             <span className={styles.roomCatTwo}><Cat size={31} weight="fill" /></span>
           </div>
-          <DrawingStudio backgroundColor={room.backgroundColor} enabled={connection === "open" && isDrawer} onDraw={isDrawer ? sendDraw : undefined} strokes={room.strokes} />
+          <DrawingStudio actions={room.canvasActions} enabled={connection === "open" && isDrawer} onDraw={isDrawer ? sendDraw : undefined} />
           {overlay}
         </section>
         <ChatPanel canSend={connection === "open" && room.ready} draft={draft} lines={lines} mode={canGuess ? "guess" : "chat"} onDraft={setDraft} onSubmit={sendText} players={room.players} />
@@ -551,10 +542,11 @@ function GameRoom({
   );
 }
 
-function PhaseOverlay({ connection, drawSeconds, isHost, onPickWord, onRematch, onShare, onStart, onVote, phase, playerCount, players, rating, result, selfPlayerId, wordOptions }: {
+function PhaseOverlay({ connection, drawSeconds, isHost, lobbyTimer, onPickWord, onRematch, onShare, onStart, onVote, phase, playerCount, players, rating, result, selfPlayerId, wordOptions }: {
   connection: ConnectionState;
   drawSeconds: number;
   isHost: boolean;
+  lobbyTimer: string;
   onPickWord: (choice: number) => void;
   onRematch: () => void;
   onShare: () => void;
@@ -579,6 +571,7 @@ function PhaseOverlay({ connection, drawSeconds, isHost, onPickWord, onRematch, 
         {isHost ? <button className={styles.primaryButton} disabled={connection !== "open" || playerCount < 2} onClick={onStart} type="button">Start game <ArrowRight size={18} weight="bold" /></button> : null}
         <button className={styles.shareRoomButton} disabled={connection !== "open"} onClick={onShare} type="button"><ShareNetwork size={18} weight="bold" /> Share room link</button>
       </div>
+      <p className={styles.lobbyExpiry}>Room held for <strong>{lobbyTimer}</strong> only — start before it expires.</p>
       <div className={styles.lobbyJoinRule}><LockKey size={16} weight="duotone" /><span>Once the game starts, new players cannot join. Players already inside can always reconnect.</span></div>
     </div>
   );

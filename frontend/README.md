@@ -32,8 +32,8 @@ explicit and the tests share the Rust hexadecimal fixtures. Lobby state, phase
 changes, private word choices, chat, guesses, per-turn score summaries, drawing
 ratings, freehand strokes, sampled shape strokes, erasing, undo, clear, and
 reconnect snapshots are synchronized with the Rust server. Dedicated brush
-identity and flood-fill operations still need matching additions to
-`ndraw-proto`; live-room fill is disabled until that wire representation exists.
+identity, chat categories, and ordered point-seeded flood-fill operations are
+mirrored in `ndraw-proto` and covered by shared hexadecimal fixtures.
 
 For a manual second client during local testing:
 
