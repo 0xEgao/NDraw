@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use ndraw_proto::{
-    CanvasSnapshot, DrawOp, Point, Stroke, StrokeId, Validate,
-    limit::{MAX_POINTS_PER_STROKE, MAX_STROKES_PER_SNAPSHOT},
+    CanvasAction, CanvasSnapshot, DrawOp, Point, Stroke, StrokeId, Validate,
+    limit::{MAX_CANVAS_ACTIONS, MAX_POINTS_PER_STROKE},
 };
 
 use crate::error::CanvasError;
@@ -28,25 +28,12 @@ pub struct ActiveStroke {
 }
 
 /// Authoritative current-turn drawing state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CanvasState {
-    background_color: u32,
-    completed: Vec<Stroke>,
+    completed: Vec<CanvasAction>,
     active: Option<ActiveStroke>,
     used_ids: HashSet<StrokeId>,
     total_points: usize,
-}
-
-impl Default for CanvasState {
-    fn default() -> Self {
-        Self {
-            background_color: 0x00ff_ffff,
-            completed: Vec::new(),
-            active: None,
-            used_ids: HashSet::new(),
-            total_points: 0,
-        }
-    }
 }
 
 impl CanvasState {
@@ -77,7 +64,7 @@ impl CanvasState {
                 self.clear();
                 Ok(())
             }
-            DrawOp::Fill { color } => self.fill(*color),
+            DrawOp::Fill { color, at } => self.fill(*color, *at),
         }
     }
 
@@ -94,8 +81,8 @@ impl CanvasState {
         if self.used_ids.contains(&stroke_id) {
             return Err(CanvasError::DuplicateStroke);
         }
-        if self.completed.len() >= MAX_STROKES_PER_SNAPSHOT {
-            return Err(CanvasError::StrokeBudgetExceeded);
+        if self.completed.len() >= MAX_CANVAS_ACTIONS {
+            return Err(CanvasError::ActionBudgetExceeded);
         }
         if self.total_points >= MAX_CANVAS_POINTS {
             return Err(CanvasError::PointBudgetExceeded);
@@ -160,12 +147,12 @@ impl CanvasState {
         }
 
         let active = self.active.take().ok_or(CanvasError::NoActiveStroke)?;
-        self.completed.push(Stroke {
+        self.completed.push(CanvasAction::Stroke(Stroke {
             stroke_id: active.stroke_id,
             color: active.color,
             width: active.width,
             points: active.points,
-        });
+        }));
         Ok(())
     }
 
@@ -173,35 +160,37 @@ impl CanvasState {
         if self.active.is_some() {
             return Err(CanvasError::StrokeAlreadyActive);
         }
-        if let Some(stroke) = self.completed.pop() {
+        if let Some(CanvasAction::Stroke(stroke)) = self.completed.pop() {
             self.total_points = self.total_points.saturating_sub(stroke.points.len());
         }
         Ok(())
     }
 
-    fn fill(&mut self, color: u32) -> Result<(), CanvasError> {
+    fn fill(&mut self, color: u32, at: Point) -> Result<(), CanvasError> {
         if self.active.is_some() {
             return Err(CanvasError::StrokeAlreadyActive);
         }
-        self.background_color = color;
+        if self.completed.len() >= MAX_CANVAS_ACTIONS {
+            return Err(CanvasError::ActionBudgetExceeded);
+        }
+        self.completed.push(CanvasAction::Fill { color, at });
         Ok(())
     }
 
     /// Finalizes an active stroke, used when a drawer disconnects mid-stroke.
     pub fn finalize_active(&mut self) {
         if let Some(active) = self.active.take() {
-            self.completed.push(Stroke {
+            self.completed.push(CanvasAction::Stroke(Stroke {
                 stroke_id: active.stroke_id,
                 color: active.color,
                 width: active.width,
                 points: active.points,
-            });
+            }));
         }
     }
 
     /// Removes all drawing state while retaining used IDs for this turn.
     pub fn clear(&mut self) {
-        self.background_color = 0x00ff_ffff;
         self.completed.clear();
         self.active = None;
         self.total_points = 0;
@@ -210,19 +199,16 @@ impl CanvasState {
     /// Returns a reconnect-safe rendering snapshot.
     #[must_use]
     pub fn snapshot(&self) -> CanvasSnapshot {
-        let mut strokes = self.completed.clone();
+        let mut actions = self.completed.clone();
         if let Some(active) = &self.active {
-            strokes.push(Stroke {
+            actions.push(CanvasAction::Stroke(Stroke {
                 stroke_id: active.stroke_id,
                 color: active.color,
                 width: active.width,
                 points: active.points.clone(),
-            });
+            }));
         }
-        CanvasSnapshot {
-            background_color: self.background_color,
-            strokes,
-        }
+        CanvasSnapshot { actions }
     }
 
     /// Number of retained points across completed and active strokes.

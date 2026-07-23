@@ -73,9 +73,9 @@ pub enum CanvasError {
     /// Current drawing exceeded its state-memory budget.
     #[error("canvas point budget exceeded")]
     PointBudgetExceeded,
-    /// Current drawing exceeded its stroke budget.
-    #[error("canvas stroke budget exceeded")]
-    StrokeBudgetExceeded,
+    /// Current drawing exceeded its retained action budget.
+    #[error("canvas action budget exceeded")]
+    ActionBudgetExceeded,
 }
 
 /// A structurally valid action rejected by authoritative game rules.

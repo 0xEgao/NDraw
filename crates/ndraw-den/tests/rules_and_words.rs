@@ -2,7 +2,7 @@ mod common;
 
 use common::{TestResult, game, profile};
 use ndraw_den::{GameTime, JoinError, PlayerAction, RuleError, WordDeck, WordDeckError};
-use ndraw_proto::{DrawOp, GuessOutcome, Point, ServerMessage, StrokeId};
+use ndraw_proto::{ChatKind, DrawOp, GuessOutcome, Point, ServerMessage, StrokeId};
 
 #[test]
 fn authority_phase_and_privacy_rules_are_enforced() -> TestResult {
@@ -68,6 +68,19 @@ fn authority_phase_and_privacy_rules_are_enforced() -> TestResult {
         Err(RuleError::Spoiler)
     );
 
+    let containing_guess = game.apply(
+        guest,
+        PlayerAction::Guess {
+            text: format!("I think the answer is {secret}"),
+        },
+        GameTime(2),
+    )?;
+    assert!(
+        containing_guess
+            .iter()
+            .all(|event| !matches!(event.message, ServerMessage::Chat(_)))
+    );
+
     let close_events = game.apply(
         guest,
         PlayerAction::Guess {
@@ -75,11 +88,22 @@ fn authority_phase_and_privacy_rules_are_enforced() -> TestResult {
         },
         GameTime(2),
     )?;
-    assert!(close_events.iter().all(|event| matches!(
+    assert!(close_events.iter().any(|event| matches!(
         event.message,
         ServerMessage::GuessResult(ref result)
             if result.player_id == guest && result.outcome == GuessOutcome::Close
     )));
+    assert!(close_events.iter().any(|event| matches!(
+        event.message,
+        ServerMessage::Chat(ref chat)
+            if chat.player_id == guest && chat.kind == ChatKind::Guess
+    )));
+    assert!(
+        game.snapshot_for(third)
+            .chat_history
+            .iter()
+            .any(|chat| chat.player_id == guest && chat.kind == ChatKind::Guess)
+    );
 
     game.apply(
         guest,

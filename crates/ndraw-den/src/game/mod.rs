@@ -11,7 +11,7 @@ use std::{
 };
 
 use ndraw_proto::{
-    AwardReason, CanvasSnapshot, ChatEvent, ClientMessage, DrawEvent, DrawingRatingView,
+    AwardReason, CanvasSnapshot, ChatEvent, ChatKind, ClientMessage, DrawEvent, DrawingRatingView,
     DrawingVote, DrawingVoteUpdate, GuessOutcome, GuessResult, HintView, PhaseView, PlayerId,
     PlayerProfile, PlayerView, Resume, RoomSettings, RoomSnapshot, ScoreView, ServerMessage,
     TurnAward, TurnId, TurnResultView, Validate, Welcome, WordOptions, limit::MAX_CHAT_HISTORY,
@@ -603,10 +603,18 @@ impl Game {
         } else {
             GuessOutcome::Incorrect
         };
-        Ok(vec![EmittedEvent::player(
+        let mut events = Vec::with_capacity(2);
+        // A non-exact sentence can still contain the complete secret. Preserve
+        // the original private guess outcome without broadcasting that text.
+        if !contains_secret(&text, &secret_word) {
+            let event = self.retain_chat(player_id, ChatKind::Guess, text);
+            events.push(EmittedEvent::everyone(ServerMessage::Chat(event)));
+        }
+        events.push(EmittedEvent::player(
             player_id,
             ServerMessage::GuessResult(GuessResult { player_id, outcome }),
-        )])
+        ));
+        Ok(events)
     }
 
     fn chat(&mut self, player_id: PlayerId, text: String) -> Result<Vec<EmittedEvent>, RuleError> {
@@ -619,12 +627,21 @@ impl Game {
             }
         }
 
-        let event = ChatEvent { player_id, text };
+        let event = self.retain_chat(player_id, ChatKind::Chat, text);
+        Ok(vec![EmittedEvent::everyone(ServerMessage::Chat(event))])
+    }
+
+    fn retain_chat(&mut self, player_id: PlayerId, kind: ChatKind, text: String) -> ChatEvent {
+        let event = ChatEvent {
+            player_id,
+            kind,
+            text,
+        };
         self.chat_history.push_back(event.clone());
         while self.chat_history.len() > MAX_CHAT_HISTORY {
             self.chat_history.pop_front();
         }
-        Ok(vec![EmittedEvent::everyone(ServerMessage::Chat(event))])
+        event
     }
 
     fn vote_drawing(

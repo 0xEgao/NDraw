@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
 use ndraw_proto::{
-    AwardReason, CanvasSnapshot, ChatEvent, ClientMessage, ClientToken, DrawEvent, DrawOp,
-    DrawingVote, DrawingVoteUpdate, ErrorCode, GamePhase, GuessOutcome, GuessResult, Hello,
-    HintView, PhaseView, PlayerId, PlayerProfile, PlayerView, ProtocolError, Resume, RoomCode,
-    RoomCodeParseError, RoomSettings, RoomSnapshot, ScoreView, ServerMessage, StrokeId, TurnAward,
-    TurnId, TurnResultView, Welcome, WordOptions,
+    AwardReason, CanvasAction, CanvasSnapshot, ChatEvent, ChatKind, ClientMessage, ClientToken,
+    DrawEvent, DrawOp, DrawingVote, DrawingVoteUpdate, ErrorCode, GamePhase, GuessOutcome,
+    GuessResult, Hello, HintView, PhaseView, PlayerId, PlayerProfile, PlayerView, ProtocolError,
+    Resume, RoomCode, RoomCodeParseError, RoomSettings, RoomSnapshot, ScoreView, ServerMessage,
+    Stroke, StrokeId, TurnAward, TurnId, TurnResultView, Welcome, WordOptions,
 };
 use uuid::Uuid;
 
@@ -51,7 +51,20 @@ pub fn snapshot() -> RoomSnapshot {
         settings: RoomSettings::default(),
         players: vec![player()],
         phase: phase(),
-        canvas: CanvasSnapshot::default(),
+        canvas: CanvasSnapshot {
+            actions: vec![
+                CanvasAction::Stroke(Stroke {
+                    stroke_id: StrokeId(3),
+                    color: 0x12_34_56,
+                    width: 8,
+                    points: vec![ndraw_proto::Point { x: 10, y: 20 }],
+                }),
+                CanvasAction::Fill {
+                    color: 0xab_cdef,
+                    at: ndraw_proto::Point { x: 40, y: 50 },
+                },
+            ],
+        },
         word_options: None,
         secret_word: None,
         chat_history: Vec::new(),
@@ -85,7 +98,10 @@ pub fn client_messages() -> Vec<ClientMessage> {
         }),
         ClientMessage::Draw(DrawOp::Undo),
         ClientMessage::Draw(DrawOp::Clear),
-        ClientMessage::Draw(DrawOp::Fill { color: 0xab_cdef }),
+        ClientMessage::Draw(DrawOp::Fill {
+            color: 0xab_cdef,
+            at: ndraw_proto::Point { x: 40, y: 50 },
+        }),
         ClientMessage::Guess {
             text: "cat".to_owned(),
         },
@@ -153,6 +169,7 @@ pub fn server_messages() -> Result<Vec<ServerMessage>, RoomCodeParseError> {
         }),
         ServerMessage::Chat(ChatEvent {
             player_id: PlayerId(9),
+            kind: ChatKind::Chat,
             text: "hello".to_owned(),
         }),
         ServerMessage::GuessResult(GuessResult {

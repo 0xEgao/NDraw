@@ -125,12 +125,14 @@ fn encode_rejects_semantically_valid_payloads_that_exceed_the_frame_limit()
     assert!(first.is_some());
 
     if let Some(ServerMessage::Welcome(welcome)) = first {
-        welcome.snapshot.canvas.strokes = (0..100)
-            .map(|stroke_id| Stroke {
-                stroke_id: StrokeId(stroke_id),
-                color: 0,
-                width: 1,
-                points: vec![Point { x: 1, y: 1 }; 128],
+        welcome.snapshot.canvas.actions = (0..100)
+            .map(|stroke_id| {
+                ndraw_proto::CanvasAction::Stroke(Stroke {
+                    stroke_id: StrokeId(stroke_id),
+                    color: 0,
+                    width: 1,
+                    points: vec![Point { x: 1, y: 1 }; 128],
+                })
             })
             .collect();
 

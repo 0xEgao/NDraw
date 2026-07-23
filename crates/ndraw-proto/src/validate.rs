@@ -8,15 +8,16 @@ use crate::{
     client::ClientMessage,
     error::ValidationError,
     limit::{
-        CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BRUSH_WIDTH, MAX_CHAT_HISTORY, MAX_DRAW_SECONDS,
-        MAX_NAME_GRAPHEMES, MAX_PLAYERS_IN_ROOM, MAX_POINTS_PER_BATCH, MAX_POINTS_PER_STROKE,
-        MAX_ROUNDS, MAX_STROKES_PER_SNAPSHOT, MAX_TEXT_BYTES, MAX_WORD_BYTES, MAX_WORD_CHOICES,
+        CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BRUSH_WIDTH, MAX_CANVAS_ACTIONS, MAX_CHAT_HISTORY,
+        MAX_DRAW_SECONDS, MAX_NAME_GRAPHEMES, MAX_PLAYERS_IN_ROOM, MAX_POINTS_PER_BATCH,
+        MAX_POINTS_PER_STROKE, MAX_ROUNDS, MAX_TEXT_BYTES, MAX_WORD_BYTES, MAX_WORD_CHOICES,
         MIN_DRAW_SECONDS, MIN_ROOM_PLAYERS, MIN_ROUNDS, MIN_WORD_CHOICES,
     },
     model::{
-        CanvasSnapshot, ChatEvent, DrawEvent, DrawOp, DrawingRatingView, DrawingVoteUpdate, Hello,
-        HintView, PhaseView, PlayerProfile, PlayerView, ProtocolError, Resume, RoomSettings,
-        RoomSnapshot, ScoreView, Stroke, TurnResultView, Welcome, WordOptions,
+        CanvasAction, CanvasSnapshot, ChatEvent, DrawEvent, DrawOp, DrawingRatingView,
+        DrawingVoteUpdate, Hello, HintView, PhaseView, PlayerProfile, PlayerView, ProtocolError,
+        Resume, RoomSettings, RoomSnapshot, ScoreView, Stroke, TurnResultView, Welcome,
+        WordOptions,
     },
     server::ServerMessage,
 };
@@ -177,7 +178,10 @@ impl Validate for DrawOp {
                 validate_count("draw.points", points.len(), 1, MAX_POINTS_PER_BATCH)?;
                 points.iter().try_for_each(Validate::validate)
             }
-            Self::Fill { color } => validate_range("draw.color", u64::from(*color), 0, 0x00ff_ffff),
+            Self::Fill { color, at } => {
+                validate_range("draw.color", u64::from(*color), 0, 0x00ff_ffff)?;
+                at.validate()
+            }
             Self::End { .. } | Self::Undo | Self::Clear => Ok(()),
         }
     }
@@ -199,27 +203,24 @@ impl Validate for Stroke {
 
 impl Validate for CanvasSnapshot {
     fn validate(&self) -> Result<(), ValidationError> {
-        validate_range(
-            "canvas.background_color",
-            u64::from(self.background_color),
-            0,
-            0x00ff_ffff,
-        )?;
-        validate_count(
-            "canvas.strokes",
-            self.strokes.len(),
-            0,
-            MAX_STROKES_PER_SNAPSHOT,
-        )?;
+        validate_count("canvas.actions", self.actions.len(), 0, MAX_CANVAS_ACTIONS)?;
 
-        let mut stroke_ids = HashSet::with_capacity(self.strokes.len());
-        for stroke in &self.strokes {
-            stroke.validate()?;
-            if !stroke_ids.insert(stroke.stroke_id) {
-                return Err(ValidationError::Inconsistent {
-                    field: "canvas.strokes",
-                    reason: "stroke identifiers must be unique",
-                });
+        let mut stroke_ids = HashSet::with_capacity(self.actions.len());
+        for action in &self.actions {
+            match action {
+                CanvasAction::Stroke(stroke) => {
+                    stroke.validate()?;
+                    if !stroke_ids.insert(stroke.stroke_id) {
+                        return Err(ValidationError::Inconsistent {
+                            field: "canvas.actions",
+                            reason: "stroke identifiers must be unique",
+                        });
+                    }
+                }
+                CanvasAction::Fill { color, at } => {
+                    validate_range("canvas.fill.color", u64::from(*color), 0, 0x00ff_ffff)?;
+                    at.validate()?;
+                }
             }
         }
         Ok(())

@@ -6,7 +6,7 @@ use ndraw_den::{
     game::scoring::guess_score,
     guess::{contains_secret, is_close, is_correct, normalize},
 };
-use ndraw_proto::{DrawOp, Point, StrokeId};
+use ndraw_proto::{CanvasAction, DrawOp, Point, StrokeId};
 
 #[test]
 fn reconstructs_valid_strokes_and_rejects_bad_sequences() -> TestResult {
@@ -38,11 +38,11 @@ fn reconstructs_valid_strokes_and_rejects_bad_sequences() -> TestResult {
         stroke_id,
         sequence: 1,
     })?;
-    assert_eq!(canvas.snapshot().strokes.len(), 1);
+    assert_eq!(canvas.snapshot().actions.len(), 1);
     assert_eq!(canvas.total_points(), 3);
 
     canvas.apply(&DrawOp::Undo)?;
-    assert!(canvas.snapshot().strokes.is_empty());
+    assert!(canvas.snapshot().actions.is_empty());
     assert_eq!(canvas.total_points(), 0);
     assert_eq!(
         canvas.apply(&DrawOp::Begin {
@@ -59,13 +59,49 @@ fn reconstructs_valid_strokes_and_rejects_bad_sequences() -> TestResult {
 #[test]
 fn canvas_fill_is_authoritative_and_reconnect_safe() -> TestResult {
     let mut canvas = CanvasState::default();
-    assert_eq!(canvas.snapshot().background_color, 0x00ff_ffff);
-
-    canvas.apply(&DrawOp::Fill { color: 0x12_34_56 })?;
-    assert_eq!(canvas.snapshot().background_color, 0x12_34_56);
+    let at = Point { x: 120, y: 240 };
+    canvas.apply(&DrawOp::Fill {
+        color: 0x12_34_56,
+        at,
+    })?;
+    assert_eq!(
+        canvas.snapshot().actions,
+        vec![CanvasAction::Fill {
+            color: 0x12_34_56,
+            at,
+        }]
+    );
 
     canvas.apply(&DrawOp::Clear)?;
-    assert_eq!(canvas.snapshot().background_color, 0x00ff_ffff);
+    assert!(canvas.snapshot().actions.is_empty());
+    Ok(())
+}
+
+#[test]
+fn undo_removes_the_latest_fill_without_losing_previous_strokes() -> TestResult {
+    let mut canvas = CanvasState::default();
+    let stroke_id = StrokeId(8);
+    canvas.apply(&DrawOp::Begin {
+        stroke_id,
+        color: 0,
+        width: 4,
+        start: Point { x: 10, y: 10 },
+    })?;
+    canvas.apply(&DrawOp::End {
+        stroke_id,
+        sequence: 0,
+    })?;
+    canvas.apply(&DrawOp::Fill {
+        color: 0xff_00_00,
+        at: Point { x: 20, y: 20 },
+    })?;
+    canvas.apply(&DrawOp::Undo)?;
+
+    assert!(matches!(
+        canvas.snapshot().actions.as_slice(),
+        [CanvasAction::Stroke(stroke)] if stroke.stroke_id == stroke_id
+    ));
+    assert_eq!(canvas.total_points(), 1);
     Ok(())
 }
 

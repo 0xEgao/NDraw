@@ -80,10 +80,12 @@ pub enum DrawOp {
     Undo,
     /// Removes every stroke from the current canvas.
     Clear,
-    /// Changes the canvas background while preserving existing strokes.
+    /// Flood-fills the contiguous color region containing `at`.
     Fill {
-        /// RGB background color encoded as `0x00RRGGBB`.
+        /// RGB replacement color encoded as `0x00RRGGBB`.
         color: u32,
+        /// Seed point whose current pixel color identifies the filled region.
+        at: Point,
     },
 }
 
@@ -100,22 +102,29 @@ pub struct Stroke {
     pub points: Vec<Point>,
 }
 
-/// Current canvas contents sent when a player joins or resumes.
+/// One completed canvas mutation retained in authoritative rendering order.
+///
+/// Keeping fills interleaved with strokes is important: replaying every stroke
+/// before every fill would let later shape boundaries incorrectly affect an
+/// earlier fill after a reconnect.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CanvasSnapshot {
-    /// RGB canvas background encoded as `0x00RRGGBB`.
-    pub background_color: u32,
-    /// Completed strokes in rendering order.
-    pub strokes: Vec<Stroke>,
+pub enum CanvasAction {
+    /// One completed or currently active stroke.
+    Stroke(Stroke),
+    /// A point-seeded contiguous-region fill.
+    Fill {
+        /// RGB replacement color encoded as `0x00RRGGBB`.
+        color: u32,
+        /// Logical seed point used by clients when replaying the fill.
+        at: Point,
+    },
 }
 
-impl Default for CanvasSnapshot {
-    fn default() -> Self {
-        Self {
-            background_color: 0x00ff_ffff,
-            strokes: Vec::new(),
-        }
-    }
+/// Current canvas contents sent when a player joins or resumes.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CanvasSnapshot {
+    /// Completed strokes and fills in authoritative rendering order.
+    pub actions: Vec<CanvasAction>,
 }
 
 /// First application message sent by a newly upgraded client.
@@ -212,8 +221,19 @@ pub struct DrawEvent {
 pub struct ChatEvent {
     /// Message author.
     pub player_id: PlayerId,
+    /// Whether the submitted text was ordinary chat or a non-winning guess.
+    pub kind: ChatKind,
     /// Plain-text message. Clients must still render it as text, never HTML.
     pub text: String,
+}
+
+/// Public text category displayed in the shared chat timeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChatKind {
+    /// Explicit chat sent from the lobby, drawer, or a player who already guessed.
+    Chat,
+    /// An incorrect or close guess safe to reveal to all participants.
+    Guess,
 }
 
 /// Result of evaluating a guess.

@@ -69,7 +69,7 @@ impl Default for ServerConfig {
             allowed_origins: Vec::new(),
             room_command_capacity: 1_024,
             outbound_capacity: 256,
-            lobby_timeout: Duration::from_secs(120),
+            lobby_timeout: Duration::from_secs(180),
             empty_timeout: Duration::from_secs(60),
             hello_timeout: Duration::from_secs(10),
             ping_interval: Duration::from_secs(15),

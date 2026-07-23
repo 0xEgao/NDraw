@@ -25,8 +25,8 @@ pub const MAX_WORD_BYTES: usize = 96;
 /// Largest number of points accepted in one drawing batch.
 pub const MAX_POINTS_PER_BATCH: usize = 64;
 
-/// Maximum number of complete strokes carried in a reconnect snapshot.
-pub const MAX_STROKES_PER_SNAPSHOT: usize = 2_048;
+/// Maximum number of ordered strokes and fills carried in a reconnect snapshot.
+pub const MAX_CANVAS_ACTIONS: usize = 2_048;
 
 /// Maximum number of points carried in one complete stroke snapshot.
 pub const MAX_POINTS_PER_STROKE: usize = 16_384;

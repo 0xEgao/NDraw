@@ -2,8 +2,8 @@ use std::{error::Error, sync::Arc, time::Duration};
 
 use futures_util::{SinkExt, StreamExt};
 use ndraw_proto::{
-    ByeReason, ClientMessage, ClientToken, DrawOp, ErrorCode, GamePhase, Hello, PlayerProfile,
-    RoomSettings, ServerMessage,
+    ByeReason, ChatKind, ClientMessage, ClientToken, DrawOp, ErrorCode, GamePhase, Hello,
+    PlayerProfile, RoomSettings, ServerMessage,
     codec::{decode_server, encode_client},
 };
 use ndraw_server::{AppState, CreateRoomRequest, CreateRoomResponse, ServerConfig, build_router};
@@ -191,6 +191,34 @@ async fn websocket_drives_gameplay_and_replaces_an_old_connection() -> TestResul
         .await?,
         ServerMessage::Draw(_)
     ));
+    let visible_guess = "definitely not the answer".to_owned();
+    send_client(
+        &mut old_guest,
+        ClientMessage::Guess {
+            text: visible_guess.clone(),
+        },
+    )
+    .await?;
+    for socket in [&mut host, &mut old_guest] {
+        assert!(matches!(
+            receive_matching(socket, |message| matches!(
+                message,
+                ServerMessage::Chat(event)
+                    if event.kind == ChatKind::Guess && event.text == visible_guess
+            ))
+            .await?,
+            ServerMessage::Chat(_)
+        ));
+    }
+    assert!(matches!(
+        receive_matching(&mut old_guest, |message| matches!(
+            message,
+            ServerMessage::GuessResult(_)
+        ))
+        .await?,
+        ServerMessage::GuessResult(_)
+    ));
+
     send_client(
         &mut old_guest,
         ClientMessage::Guess {
@@ -213,10 +241,15 @@ async fn websocket_drives_gameplay_and_replaces_an_old_connection() -> TestResul
         ClientMessage::Hello(hello(guest_token, "Changed name is ignored")),
     )
     .await?;
-    assert!(matches!(
-        receive_server(&mut resumed_guest).await?,
-        ServerMessage::Resume(_)
-    ));
+    let resume = receive_server(&mut resumed_guest).await?;
+    let ServerMessage::Resume(resume) = resume else {
+        return Err(test_error("expected resume snapshot"));
+    };
+    assert!(resume.snapshot.chat_history.iter().any(|event| {
+        event.player_id == resume.player_id
+            && event.kind == ChatKind::Guess
+            && event.text == visible_guess
+    }));
     assert!(matches!(
         receive_matching(&mut old_guest, |message| matches!(
             message,

@@ -47,7 +47,7 @@ available through HTTP.
 | `NDRAW_ALLOWED_ORIGINS` | empty | Comma-separated browser Origin allowlist; empty permits local development |
 | `NDRAW_ROOM_COMMAND_CAPACITY` | `1024` | Commands buffered per room actor |
 | `NDRAW_OUTBOUND_CAPACITY` | `256` | Messages buffered per connection writer |
-| `NDRAW_LOBBY_TIMEOUT_SECONDS` | `120` | Unstarted room lifetime |
+| `NDRAW_LOBBY_TIMEOUT_SECONDS` | `180` | Unstarted room lifetime |
 | `NDRAW_EMPTY_TIMEOUT_SECONDS` | `60` | Empty-room grace period |
 | `NDRAW_HELLO_TIMEOUT_SECONDS` | `10` | First-message deadline |
 | `NDRAW_PING_INTERVAL_SECONDS` | `15` | Application heartbeat interval |

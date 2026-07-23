@@ -8,8 +8,8 @@
 //! # Wire compatibility
 //!
 //! Frames begin with a protocol version and an explicit opcode. The remaining
-//! payload uses Postcard's stable format. Existing opcode values and payload
-//! field order are compatibility contracts for protocol version 2.
+//! payload uses Postcard's stable format. Explicit opcode values are frozen for
+//! protocol version 2; payload layouts are defined by the current wire types.
 //!
 //! # Safety
 //!

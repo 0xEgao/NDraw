@@ -3,8 +3,8 @@ mod common;
 use std::error::Error;
 
 use ndraw_proto::{
-    ClientMessage, DrawEvent, DrawOp, DrawingVote, DrawingVoteUpdate, PlayerId, ServerMessage,
-    TurnId, encode_client, encode_server,
+    ChatEvent, ChatKind, ClientMessage, DrawEvent, DrawOp, DrawingVote, DrawingVoteUpdate,
+    PlayerId, ServerMessage, TurnId, encode_client, encode_server,
 };
 
 #[test]
@@ -52,14 +52,31 @@ fn drawing_vote_fixtures_match_browser_codec() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn canvas_fill_fixture_matches_browser_codec() -> Result<(), Box<dyn Error>> {
-    let client = encode_client(&ClientMessage::Draw(DrawOp::Fill { color: 42 }))?;
-    assert_eq!(hex::encode(client), "0204052a");
+    let client = encode_client(&ClientMessage::Draw(DrawOp::Fill {
+        color: 42,
+        at: ndraw_proto::Point { x: 10, y: 20 },
+    }))?;
+    assert_eq!(hex::encode(client), "0204052a0a14");
 
     let server = encode_server(&ServerMessage::Draw(DrawEvent {
         player_id: PlayerId(7),
         turn_id: TurnId(4),
-        operation: DrawOp::Fill { color: 42 },
+        operation: DrawOp::Fill {
+            color: 42,
+            at: ndraw_proto::Point { x: 10, y: 20 },
+        },
     }))?;
-    assert_eq!(hex::encode(server), "028a0704052a");
+    assert_eq!(hex::encode(server), "028a0704052a0a14");
+    Ok(())
+}
+
+#[test]
+fn public_guess_chat_fixture_matches_browser_codec() -> Result<(), Box<dyn Error>> {
+    let frame = encode_server(&ServerMessage::Chat(ChatEvent {
+        player_id: PlayerId(7),
+        kind: ChatKind::Guess,
+        text: "no".to_owned(),
+    }))?;
+    assert_eq!(hex::encode(frame), "028b0701026e6f");
     Ok(())
 }
