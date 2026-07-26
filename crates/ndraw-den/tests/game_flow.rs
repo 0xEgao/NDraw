@@ -49,7 +49,7 @@ fn completes_a_full_game_and_rematch_without_networking() -> TestResult {
         award.player_id == guest && award.points == 500 && award.reason == AwardReason::CorrectGuess
     }));
     assert!(result.awards.iter().any(|award| {
-        award.player_id == host && award.points == 250 && award.reason == AwardReason::DrawerBonus
+        award.player_id == host && award.points == 125 && award.reason == AwardReason::DrawerBonus
     }));
 
     let vote_events = game.apply(
@@ -105,7 +105,7 @@ fn completes_a_full_game_and_rematch_without_networking() -> TestResult {
 
     let view = game.state_view();
     assert_eq!(view.phase, GamePhase::GameOver);
-    assert_eq!(view.scores, vec![(host, 750), (guest, 750)]);
+    assert_eq!(view.scores, vec![(host, 625), (guest, 625)]);
 
     game.apply(host, PlayerAction::Rematch, GameTime(game_over_at + 1))?;
     let rematch = game.state_view();

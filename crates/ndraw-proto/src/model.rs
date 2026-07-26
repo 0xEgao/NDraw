@@ -275,7 +275,7 @@ pub struct ScoreView {
 pub enum AwardReason {
     /// The player correctly guessed the secret word.
     CorrectGuess,
-    /// The drawer received half of the turn's combined guesser points.
+    /// The drawer received one quarter of the turn's combined guesser points.
     DrawerBonus,
 }
 
