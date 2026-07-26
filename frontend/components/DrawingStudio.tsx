@@ -281,11 +281,13 @@ export function DrawingStudio({
   compact = false,
   enabled = true,
   onDraw,
+  showTools = true,
 }: {
   actions?: readonly CanvasAction[];
   compact?: boolean;
   enabled?: boolean;
   onDraw?: (operation: DrawOp) => void;
+  showTools?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const historyRef = useRef<ImageData[]>([]);
@@ -585,7 +587,7 @@ export function DrawingStudio({
         <div className={styles.canvasCornerLabel}>1024 × 960</div>
       </div>
 
-      <div className={styles.toolDock}>
+      {showTools ? <div className={styles.toolDock}>
         <button aria-expanded={openSection === "brushes"} className={styles.quickToolButton} data-active={brushTools.some(({ id }) => id === tool)} onClick={() => toggleSection("brushes")} type="button">
           <PaintBrush size={20} weight="bold" /><span>Pen</span>
         </button>
@@ -608,9 +610,9 @@ export function DrawingStudio({
         <button aria-label="Undo" className="icon-button" disabled={!enabled || (onDraw ? actions.length === 0 : !canUndo)} onClick={undo} type="button"><ArrowCounterClockwise size={20} weight="bold" /></button>
         <button aria-label="Redo" className="icon-button" disabled={!enabled || Boolean(onDraw) || !canRedo} onClick={redo} type="button"><ArrowClockwise size={20} weight="bold" /></button>
         <button aria-label="Clear canvas" className="icon-button" disabled={!enabled} onClick={clear} type="button"><Trash size={19} weight="bold" /></button>
-      </div>
+      </div> : null}
 
-      {openSection ? (
+      {showTools && openSection ? (
         <aside className={styles.toolPanel} aria-label="Drawing tools">
           <div className={styles.toolPanelHeader}>
             <div><span className={styles.eyebrow}>Drawing tool</span><strong>{panelTitle}</strong></div>

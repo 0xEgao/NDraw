@@ -516,7 +516,7 @@ function GameRoom({
             <span className={styles.roomCatOne}><i>mrrp!</i><Cat size={36} weight="duotone" /></span>
             <span className={styles.roomCatTwo}><Cat size={31} weight="fill" /></span>
           </div>
-          <DrawingStudio actions={room.canvasActions} enabled={connection === "open" && isDrawer} onDraw={isDrawer ? sendDraw : undefined} />
+          <DrawingStudio actions={room.canvasActions} enabled={connection === "open" && isDrawer} onDraw={isDrawer ? sendDraw : undefined} showTools={isDrawer} />
           {overlay}
         </section>
         <ChatPanel canSend={connection === "open" && room.ready} draft={draft} lines={lines} mode={canGuess ? "guess" : "chat"} onDraft={setDraft} onSubmit={sendText} players={room.players} />
@@ -608,7 +608,7 @@ function PhaseOverlay({ connection, drawSeconds, isHost, lobbyTimer, onPickWord,
           <button aria-label="Like drawing" data-active={vote === "like"} disabled={viewerIsDrawer || connection !== "open"} onClick={() => onVote(vote === "like" ? null : "like")} type="button"><ThumbsUp size={18} weight={vote === "like" ? "fill" : "bold"} /> {rating?.likes ?? 0}</button>
           <button aria-label="Dislike drawing" data-active={vote === "dislike"} disabled={viewerIsDrawer || connection !== "open"} onClick={() => onVote(vote === "dislike" ? null : "dislike")} type="button"><ThumbsDown size={18} weight={vote === "dislike" ? "fill" : "bold"} /> {rating?.dislikes ?? 0}</button>
         </div>
-        <p className={styles.scoreExplanation}>Fast correct guesses earn 50–500 points over {drawSeconds}s. The drawer earns half of all guesser points. Ratings never affect scores.</p>
+        <p className={styles.scoreExplanation}>Fast correct guesses earn 50–500 points over {drawSeconds}s. The drawer earns one quarter of all guesser points. Ratings never affect scores.</p>
       </div>
     );
   }
@@ -662,7 +662,7 @@ function PlayerRail({ copied, drawerId, maxPlayers, onCopy, players, roomCode, s
           );
         })}
       </ol>
-      <div className={styles.scoreRules}><Lightning size={15} weight="duotone" /><span><b>How points work</b><small>Guess faster for 50–500. Drawer gets half the guessers’ points.</small></span></div>
+      <div className={styles.scoreRules}><Lightning size={15} weight="duotone" /><span><b>How points work</b><small>Guess faster for 50–500. Drawer gets one quarter of the guessers’ points.</small></span></div>
       <div className={styles.inviteCard}><LinkSimple size={20} weight="duotone" /><span><small>Invite code</small><b>{roomCode}</b></span><button aria-label="Copy room code" onClick={onCopy} type="button">{copied ? <Check size={18} weight="bold" /> : <Copy size={18} weight="bold" />}</button></div>
     </aside>
   );
@@ -678,11 +678,18 @@ function ChatPanel({ canSend, draft, lines, mode, onDraft, onSubmit, players, mo
   players: PlayerView[];
   mobile?: boolean;
 }) {
+  const messagesRef = useRef<HTMLDivElement>(null);
   const playerName = (playerId: number | null) => players.find((player) => player.playerId === playerId)?.profile.displayName ?? "Game";
+
+  useEffect(() => {
+    const messages = messagesRef.current;
+    if (messages) messages.scrollTop = messages.scrollHeight;
+  }, [lines]);
+
   return (
     <aside className={`${styles.chatPanel} ${mobile ? styles.mobilePanelContent : ""}`}>
       <div className={styles.panelHeading}><span>Chat & guesses</span><span className={styles.onlinePill}>{canSend ? "Live" : "Offline"}</span></div>
-      <div className={styles.chatMessages} aria-live="polite">
+      <div className={styles.chatMessages} aria-live="polite" ref={messagesRef}>
         {lines.length === 0 ? <div className={styles.chatHint}>Nothing here yet. Say hello.</div> : null}
         {lines.map((line) => line.kind === "correct" ? (
           <div className={styles.correctMessage} key={line.id}><Check size={15} weight="bold" /> {playerName(line.playerId)} {line.text}</div>
