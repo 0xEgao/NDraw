@@ -28,6 +28,7 @@ import { initialRoomState, rankPlayers, reduceRoom, roomPlayer } from "../lib/ro
 import { Avatar, AvatarBytes } from "./Avatar";
 import { AvatarPicker } from "./AvatarPicker";
 import { DrawingStudio } from "./DrawingStudio";
+import { VoiceControl } from "./VoiceControl";
 import styles from "./ndraw.module.css";
 
 const DEFAULT_AVATAR: AvatarBytes = [42, 178, 91, 217, 63, 144, 8, 201];
@@ -510,7 +511,10 @@ function GameRoom({
         <section className={styles.canvasColumn}>
           <div className={styles.canvasStatus}>
             <span><span className={styles.liveDot} data-state={connection} />{connection === "open" ? "Live room" : connection === "connecting" ? "Connecting" : "Offline"}</span>
-            <small>{room.lastError ?? serverNotice}</small>
+            <div className={styles.canvasStatusRight}>
+              <small>{room.lastError ?? serverNotice}</small>
+              <VoiceControl apiBase={apiBase()} displayName={name} roomCode={roomCode} />
+            </div>
           </div>
           <div className={styles.roomCats} aria-hidden="true">
             <span className={styles.roomCatOne}><i>mrrp!</i><Cat size={36} weight="duotone" /></span>

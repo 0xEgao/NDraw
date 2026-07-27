@@ -18,6 +18,17 @@ client to it:
 NEXT_PUBLIC_NDRAW_API_BASE=http://127.0.0.1:3001 npm run dev
 ```
 
+Voice chat is optional and uses LiveKit. Set these variables on the Rust server:
+
+```bash
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+```
+
+Without them the game still works; the voice button reports that voice chat is
+not configured.
+
 ## Commands
 
 - `npm run dev` starts the local frontend.
