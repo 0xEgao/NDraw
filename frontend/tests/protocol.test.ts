@@ -10,6 +10,10 @@ test("matches the Rust StartGame golden fixture", () => {
   assert.equal(hex(encodeClientMessage({ kind: "startGame" })), "0202");
 });
 
+test("matches the Rust KickPlayer golden fixture", () => {
+  assert.equal(hex(encodeClientMessage({ kind: "kickPlayer", playerId: 42 })), "02072a");
+});
+
 test("matches the Rust Hello golden fixture", () => {
   const frame = encodeClientMessage({
     kind: "hello",

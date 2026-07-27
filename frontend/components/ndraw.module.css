@@ -309,7 +309,13 @@
 .playerName { display: grid; min-width: 0; gap: 1px; }
 .playerName b { overflow: hidden; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .playerName small { color: #999b94; font-size: 0.62rem; }
-.playerList li > strong { color: #666960; font-size: 0.67rem; font-variant-numeric: tabular-nums; }
+.playerActions { display: flex; align-items: center; gap: 4px; }
+.playerActions > strong { min-width: 20px; color: #666960; font-size: 0.67rem; font-variant-numeric: tabular-nums; text-align: right; }
+.kickPlayerButton { display: grid; width: 27px; height: 27px; place-items: center; border: 0; border-radius: 8px; background: transparent; padding: 0; color: #a55448; cursor: pointer; transition: background 140ms ease, color 140ms ease; }
+.kickPlayerButton:hover { background: #ffebe7; color: #9e3628; }
+.kickPlayerButton:focus-visible { outline: 2px solid var(--coral); outline-offset: 1px; }
+.kickPlayerButton:disabled { color: #aaa8a1; cursor: not-allowed; opacity: 0.45; }
+.kickPlayerButton:disabled:hover { background: transparent; }
 .scoreRules { display: flex; align-items: flex-start; gap: 8px; margin: auto 12px 0; border-top: 1px solid #e5e1d8; padding: 11px 2px 3px; color: #81779e; }
 .scoreRules > span { display: grid; gap: 2px; }
 .scoreRules b { color: #66635e; font-size: 0.62rem; }

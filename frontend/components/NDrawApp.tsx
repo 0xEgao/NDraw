@@ -17,6 +17,7 @@ import {
   ShareNetwork,
   ThumbsDown,
   ThumbsUp,
+  UserMinus,
   UsersThree,
   X,
 } from "@phosphor-icons/react";
@@ -471,6 +472,12 @@ function GameRoom({
     clientRef.current?.send({ kind: "draw", operation });
   };
 
+  const kickPlayer = (player: PlayerView) => {
+    if (!window.confirm(`Remove ${player.profile.displayName} from this room? They won't be able to rejoin.`)) return;
+    const sent = clientRef.current?.send({ kind: "kickPlayer", playerId: player.playerId });
+    setServerNotice(sent ? `Removing ${player.profile.displayName}…` : "Reconnect before removing a player");
+  };
+
   const header = roomHeader(phase, room.selfPlayerId, drawer?.profile.displayName, room.secretWord);
 
   const overlay = room.ready ? (
@@ -507,7 +514,7 @@ function GameRoom({
       </header>
 
       <div className={styles.gameGrid}>
-        <PlayerRail copied={copied} drawerId={phase?.drawer ?? null} maxPlayers={room.settings?.maxPlayers ?? 12} onCopy={copyCode} players={room.players} roomCode={roomCode} selfPlayerId={room.selfPlayerId} />
+        <PlayerRail canKick={connection === "open" && Boolean(self?.isHost)} copied={copied} drawerId={phase?.drawer ?? null} maxPlayers={room.settings?.maxPlayers ?? 12} onCopy={copyCode} onKick={kickPlayer} players={room.players} roomCode={roomCode} selfPlayerId={room.selfPlayerId} />
         <section className={styles.canvasColumn}>
           <div className={styles.canvasStatus}>
             <span><span className={styles.liveDot} data-state={connection} />{connection === "open" ? "Live room" : connection === "connecting" ? "Connecting" : "Offline"}</span>
@@ -537,7 +544,7 @@ function GameRoom({
           <section className={styles.mobileSheet}>
             <div className={styles.mobileSheetHeader}><strong>{mobilePanel === "players" ? "Players" : "Chat & guesses"}</strong><button aria-label="Close panel" className="icon-button" onClick={onClosePanel} type="button"><X size={18} weight="bold" /></button></div>
             {mobilePanel === "players"
-              ? <PlayerRail copied={copied} drawerId={phase?.drawer ?? null} maxPlayers={room.settings?.maxPlayers ?? 12} mobile onCopy={copyCode} players={room.players} roomCode={roomCode} selfPlayerId={room.selfPlayerId} />
+              ? <PlayerRail canKick={connection === "open" && Boolean(self?.isHost)} copied={copied} drawerId={phase?.drawer ?? null} maxPlayers={room.settings?.maxPlayers ?? 12} mobile onCopy={copyCode} onKick={kickPlayer} players={room.players} roomCode={roomCode} selfPlayerId={room.selfPlayerId} />
               : <ChatPanel canSend={connection === "open" && room.ready} draft={draft} lines={lines} mobile mode={canGuess ? "guess" : "chat"} onDraft={setDraft} onSubmit={sendText} players={room.players} />}
           </section>
         </div>
@@ -639,11 +646,13 @@ function PhaseOverlay({ connection, drawSeconds, isHost, lobbyTimer, onPickWord,
   );
 }
 
-function PlayerRail({ copied, drawerId, maxPlayers, onCopy, players, roomCode, selfPlayerId, mobile = false }: {
+function PlayerRail({ canKick, copied, drawerId, maxPlayers, onCopy, onKick, players, roomCode, selfPlayerId, mobile = false }: {
+  canKick: boolean;
   copied: boolean;
   drawerId: number | null;
   maxPlayers: number;
   onCopy: () => void;
+  onKick: (player: PlayerView) => void;
   players: PlayerView[];
   roomCode: string;
   selfPlayerId: number | null;
@@ -661,7 +670,21 @@ function PlayerRail({ copied, drawerId, maxPlayers, onCopy, players, roomCode, s
               <span className={styles.rank}>{index + 1}</span>
               <div className={styles.playerAvatar}><Avatar name={player.profile.displayName} size={43} value={player.profile.avatar} />{player.isHost ? <CrownSimple size={14} weight="fill" /> : null}</div>
               <span className={styles.playerName}><b>{player.profile.displayName}{player.playerId === selfPlayerId ? " (you)" : ""}</b><small>{status === "drawing" ? "drawing now" : status === "guessed" ? "guessed it" : status === "offline" ? "disconnected" : player.isHost ? "host" : "thinking…"}</small></span>
-              <strong>{player.score}</strong>
+              <span className={styles.playerActions}>
+                <strong>{player.score}</strong>
+                {canKick && player.connected && player.playerId !== selfPlayerId ? (
+                  <button
+                    aria-label={`Remove ${player.profile.displayName} from room`}
+                    className={styles.kickPlayerButton}
+                    disabled={player.playerId === drawerId}
+                    onClick={() => onKick(player)}
+                    title={player.playerId === drawerId ? "The current drawer can't be removed" : `Remove ${player.profile.displayName}`}
+                    type="button"
+                  >
+                    <UserMinus size={15} weight="bold" />
+                  </button>
+                ) : null}
+              </span>
             </li>
           );
         })}
