@@ -51,6 +51,7 @@ pub(crate) fn router(state: Arc<AppState>) -> Router {
         .route("/readyz", get(ready))
         .route("/metrics", get(metrics))
         .route("/v1/rooms", post(create_room))
+        .route("/v1/voice/token", get(crate::voice::token))
         .route("/v1/ws/{room_code}", get(crate::ws::upgrade))
         .layer(DefaultBodyLimit::max(8 * 1_024))
         .layer(cors)

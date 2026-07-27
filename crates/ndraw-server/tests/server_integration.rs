@@ -84,6 +84,26 @@ async fn control_plane_creates_rooms_and_exports_metrics() -> TestResult {
     assert!(created.websocket_url.starts_with(&server.ws_base));
     assert_eq!(created.room_code.to_string().len(), 6);
 
+    let invalid_voice_room = client
+        .get(format!(
+            "{}/v1/voice/token?room_code=bad&display_name=Artist",
+            server.http_base
+        ))
+        .send()
+        .await?;
+    assert_eq!(
+        invalid_voice_room.status(),
+        reqwest::StatusCode::BAD_REQUEST
+    );
+    let missing_voice_room = client
+        .get(format!(
+            "{}/v1/voice/token?room_code=ZZZZZZ&display_name=Artist",
+            server.http_base
+        ))
+        .send()
+        .await?;
+    assert_eq!(missing_voice_room.status(), reqwest::StatusCode::NOT_FOUND);
+
     let metrics = client
         .get(format!("{}/metrics", server.http_base))
         .send()

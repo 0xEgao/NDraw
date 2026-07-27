@@ -36,6 +36,7 @@ tokio-util = { version = "0.7", features = ["rt"] }
 postcard = { version = "1.1", features = ["use-std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+jsonwebtoken = { version = "9", default-features = false }
 uuid = { version = "1", features = ["serde", "v4"] }
 
 # Domain and validation

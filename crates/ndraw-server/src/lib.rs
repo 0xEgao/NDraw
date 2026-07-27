@@ -11,6 +11,7 @@ mod directory;
 mod http;
 mod metrics;
 mod rate_limit;
+mod voice;
 mod ws;
 
 use std::sync::{
