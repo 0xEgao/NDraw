@@ -23,6 +23,7 @@ const TOKEN_TTL_SECONDS: u64 = 6 * 60 * 60;
 pub(crate) struct TokenQuery {
     room_code: String,
     display_name: String,
+    player_id: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,7 +86,10 @@ pub(crate) async fn token(
         .take(8)
         .map(char::from)
         .collect();
-    let identity = format!("{}-{suffix}", profile.display_name);
+    let identity = query.player_id.map_or_else(
+        || format!("guest-{suffix}"),
+        |player_id| format!("player-{player_id}-{suffix}"),
+    );
     let room = room_code.to_string();
     let claims = Claims {
         iss: api_key,

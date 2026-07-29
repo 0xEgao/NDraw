@@ -306,6 +306,37 @@
 .playerAvatar { position: relative; height: 43px; }
 .playerAvatar img { border-radius: 50%; }
 .playerAvatar > svg { position: absolute; right: -2px; top: -4px; color: #e5a727; transform: rotate(12deg); }
+.playerVoiceStatus,
+.playerVoiceButton {
+  position: absolute;
+  z-index: 2;
+  right: -5px;
+  bottom: -4px;
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: #e5e3dd;
+  padding: 0;
+  color: #8b8d87;
+}
+.playerVoiceStatus[data-state="connected"] { background: #e7e1fb; color: var(--purple-dark); }
+.playerVoiceStatus[data-state="muted"] { background: #eeeae2; color: #8c8981; }
+.playerVoiceStatus[data-state="speaking"],
+.playerVoiceButton[data-speaking="true"] {
+  background: #dff5e7;
+  box-shadow: 0 0 0 3px rgba(83, 189, 123, 0.2);
+  color: #247446;
+}
+.playerVoiceButton { cursor: pointer; transition: background 140ms ease, color 140ms ease, transform 140ms ease; }
+.playerVoiceButton:hover { transform: scale(1.08); }
+.playerVoiceButton:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.playerVoiceButton[data-state="live"] { background: #dff5e7; color: #247446; }
+.playerVoiceButton[data-state="muted"] { background: #e7e1fb; color: var(--purple-dark); }
+.playerVoiceButton[data-state="connecting"] svg { animation: phase-spin 0.9s linear infinite; }
+.playerVoiceButton[data-state="error"] { background: #ffe6df; color: #a44332; }
 .playerName { display: grid; min-width: 0; gap: 1px; }
 .playerName b { overflow: hidden; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
 .playerName small { color: #999b94; font-size: 0.62rem; }
@@ -331,12 +362,6 @@
 .canvasStatus small { font-size: 0.62rem; }
 .canvasStatusRight { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .canvasStatusRight small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.voiceButton { display: inline-flex; min-width: 72px; height: 28px; align-items: center; justify-content: center; gap: 5px; border: 1px solid #d2cec3; border-radius: 99px; background: var(--paper); color: #777a73; cursor: pointer; font: 850 0.61rem/1 "Nunito Sans Variable"; transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease; }
-.voiceButton:hover { transform: translateY(-1px); border-color: #aca6bb; }
-.voiceButton[data-state="live"] { border-color: #75c996; background: #eaf8ef; color: #247446; }
-.voiceButton[data-state="muted"] { border-color: #c5bee2; background: var(--purple-soft); color: var(--purple-dark); }
-.voiceButton[data-state="connecting"] svg { animation: phase-spin 0.9s linear infinite; }
-.voiceButton[data-state="error"] { border-color: #e2a899; background: #fff0eb; color: #a44332; }
 .remoteAudio { display: none; }
 .liveDot { width: 7px; height: 7px; border-radius: 50%; background: #53bd7b; box-shadow: 0 0 0 4px rgba(83, 189, 123, 0.12); }
 .liveDot[data-state="connecting"] { background: #e2a92f; box-shadow: 0 0 0 4px rgba(226, 169, 47, 0.14); }
@@ -481,8 +506,6 @@
   .canvasColumn { height: 100%; }
   .canvasStatus { height: 28px; }
   .canvasStatusRight > small { display: none; }
-  .voiceButton { min-width: 34px; width: 34px; height: 26px; padding: 0; }
-  .voiceButton span { display: none; }
   .canvasWrap { width: min(100%, calc((100dvh - 172px) * 1.0667)); aspect-ratio: 1024 / 960; transition: width 180ms ease; }
   .gameShell[data-mobile-panel="chat"] .canvasWrap { width: min(64vw, 320px, calc((55dvh - 90px) * 1.0667)); }
   .gameShell[data-mobile-panel="players"] .canvasWrap { width: min(72vw, 360px); }

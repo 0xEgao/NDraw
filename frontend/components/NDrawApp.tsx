@@ -29,7 +29,7 @@ import { initialRoomState, rankPlayers, reduceRoom, roomPlayer } from "../lib/ro
 import { Avatar, AvatarBytes } from "./Avatar";
 import { AvatarPicker } from "./AvatarPicker";
 import { DrawingStudio } from "./DrawingStudio";
-import { VoiceControl } from "./VoiceControl";
+import { PlayerVoiceControl, VoiceProvider } from "./VoiceControl";
 import styles from "./ndraw.module.css";
 
 const DEFAULT_AVATAR: AvatarBytes = [42, 178, 91, 217, 63, 144, 8, 201];
@@ -505,6 +505,7 @@ function GameRoom({
   ) : <PhaseOverlay connection={connection} drawSeconds={100} isHost={false} lobbyTimer="--:--" onPickWord={() => undefined} onRematch={() => undefined} onShare={() => undefined} onStart={() => undefined} onVote={() => undefined} phase={null} playerCount={0} players={[]} rating={null} result={null} selfPlayerId={null} wordOptions={[]} />;
 
   return (
+    <VoiceProvider apiBase={apiBase()} displayName={name} roomCode={roomCode} selfPlayerId={room.selfPlayerId}>
     <main className={styles.gameShell} data-mobile-panel={mobilePanel ?? "none"}>
       <header className={styles.gameHeader}>
         <button aria-label="Leave room" className={styles.brandButton} onClick={onExit} type="button"><Brand /></button>
@@ -520,7 +521,6 @@ function GameRoom({
             <span><span className={styles.liveDot} data-state={connection} />{connection === "open" ? "Live room" : connection === "connecting" ? "Connecting" : "Offline"}</span>
             <div className={styles.canvasStatusRight}>
               <small>{room.lastError ?? serverNotice}</small>
-              <VoiceControl apiBase={apiBase()} displayName={name} roomCode={roomCode} />
             </div>
           </div>
           <div className={styles.roomCats} aria-hidden="true">
@@ -550,6 +550,7 @@ function GameRoom({
         </div>
       ) : null}
     </main>
+    </VoiceProvider>
   );
 }
 
@@ -668,7 +669,11 @@ function PlayerRail({ canKick, copied, drawerId, maxPlayers, onCopy, onKick, pla
           return (
             <li data-status={status} key={player.playerId}>
               <span className={styles.rank}>{index + 1}</span>
-              <div className={styles.playerAvatar}><Avatar name={player.profile.displayName} size={43} value={player.profile.avatar} />{player.isHost ? <CrownSimple size={14} weight="fill" /> : null}</div>
+              <div className={styles.playerAvatar}>
+                <Avatar name={player.profile.displayName} size={43} value={player.profile.avatar} />
+                {player.isHost ? <CrownSimple size={14} weight="fill" /> : null}
+                <PlayerVoiceControl displayName={player.profile.displayName} playerId={player.playerId} />
+              </div>
               <span className={styles.playerName}><b>{player.profile.displayName}{player.playerId === selfPlayerId ? " (you)" : ""}</b><small>{status === "drawing" ? "drawing now" : status === "guessed" ? "guessed it" : status === "offline" ? "disconnected" : player.isHost ? "host" : "thinking…"}</small></span>
               <span className={styles.playerActions}>
                 <strong>{player.score}</strong>
