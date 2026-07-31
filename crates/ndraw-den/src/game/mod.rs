@@ -805,7 +805,7 @@ impl Game {
         };
         drawing.canvas.finalize_active();
 
-        let drawer_bonus = drawing.guesser_score_total / 3;
+        let drawer_bonus = drawing.guesser_score_total / drawing.guessed.iter().len() as u32;
         let mut events = Vec::new();
         if drawer_bonus > 0 {
             if let Some(drawer) = self.players.get_mut(&drawing.drawer) {
